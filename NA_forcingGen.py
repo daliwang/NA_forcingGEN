@@ -2,7 +2,7 @@
 # data_partition module for batch processing
 # based on array_split and function definition
 
-import os 
+import os,sys 
 import netCDF4 as nc
 import numpy as np
 from time import process_time
@@ -61,8 +61,8 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     dst.title = var_name + '('+period+') creted from '+ input_path +' on ' +formatted_date
 
     # create the gridIDs, lon, and lat variable
-    gridcell = dst.createDimension('gridcell', grid_id_arr.size)
-    time = dst.createDimension('time', time)
+    x  = dst.createDimension('gridcell', grid_id_arr.size)
+    x = dst.createDimension('time', time)
 
     w_nc_var = dst.createVariable('gridID', np.int32, ('gridcell',))
     #  set variable attributes
@@ -74,7 +74,7 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     for name, variable in src.variables.items():
         if (name == var_name):
             w_nc_var = dst.createVariable(var_name, np.float32, ('time', 'gridcell'))
-            dst.variables[var_name][:] =data_arr.reshape(i_timesteps,grid_id_arr.size)
+            dst.variables[var_name][:] =data_arr.reshape(time,grid_id_arr.size)
             for attr_name in variable.ncattrs():
                 dst[name].setncattr(attr_name, variable.getncattr(attr_name))
         
@@ -93,13 +93,13 @@ def get_files(input_path):
     print("total " + str(len(files_nc)) + " files need to be processed")
     return files_nc
 
-def main()
+def main():
     args = sys.argv[1:]
     input_path = args[0]
     output_path = args[1]
-    i_timesteps = 1
+    time = int(args[2])
     
-    file_nc = get_files(input_path)
+    files_nc = get_files(input_path)
 
     for f in files_nc: 
         var_name = f[20:-11]
