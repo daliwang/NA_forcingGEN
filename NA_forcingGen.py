@@ -73,7 +73,7 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     # Copy the variables from the source to the target
     for name, variable in src.variables.items():
         if (name == var_name):
-            w_nc_var = dst.createVariable(var_name, variable.datatype, ('time', 'gridcell'))
+            w_nc_var = dst.createVariable(var_name, variable.datatype, ('time', 'gridcell'), zlib=True, complevel=9)
             dst.variables[var_name][:] =data_arr.reshape(time,grid_id_arr.size)
             for attr_name in variable.ncattrs():
                 dst[name].setncattr(attr_name, variable.getncattr(attr_name))
