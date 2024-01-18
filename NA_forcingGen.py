@@ -73,7 +73,7 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     # Copy the variables from the source to the target
     for name, variable in src.variables.items():
         if (name == var_name):
-            w_nc_var = dst.createVariable(var_name, variable.datatype, ('time', 'gridcell'), zlib=True, complevel=9)
+            w_nc_var = dst.createVariable(var_name, variable.datatype, ('time', 'gridcell'), zlib=True, complevel=5)
             dst.variables[var_name][:] =data_arr.reshape(time,grid_id_arr.size)
             for attr_name in variable.ncattrs():
                 dst[name].setncattr(attr_name, variable.getncattr(attr_name))
@@ -101,7 +101,7 @@ def main():
         print(" <input_path>: path to the 1D source data directory")
         print(" <output_path>:  path for the 1D AOI forcing data directory")
         print(" <time steps>: timesteps to be processed or -1 (all time series)")
-        print(" The code convert 2D NA forcing to generation 1D NA forcing")              
+        print(" The code converts 2D NA forcing inot  1D NA forcing")              
         exit(0)
 
     input_path = args[0]
