@@ -55,7 +55,7 @@ def AOI_forcing_save_1d(input_path, file, AOI, AOI_points, var_name, period, tim
     # Open a new NetCDF file to write the data to. For format, you can choose from
     # 'NETCDF3_CLASSIC', 'NETCDF3_64BIT', 'NETCDF4_CLASSIC', and 'NETCDF4'
     dst = nc.Dataset(dst_name, 'w', format='NETCDF4')
-    dst.title = var_name + '('+period+') creted from '+ input_path +' on ' +formatted_date
+    dst.title = var_name + '('+ period + ') created from '+ input_path +' on ' +formatted_date
 
     # create the gridIDs, lon, and lat variable
     x = dst.createDimension('gridcell', len(AOI_points))
