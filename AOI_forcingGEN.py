@@ -33,6 +33,13 @@ def AOI_forcing_save_1d(input_path, file, AOI, AOI_points, var_name, period, tim
     # read forcing data
     data = src[var_name][0:time, :] # read (time, gridcell) format
     print(data.shape)
+
+    latxy= src['LATIXY'][...]
+    lonxy= src['LONGXY'][...]
+
+    # time in 'days since ' current yyyy-mm-01-01 00:00:00
+    data_time = src['time'][0:time] # read (time, y, x) format
+       
     # create the mask for data subsetting using AOI points
     # TODO
     #AOI_mask = np.where(~np.isnan(mask), 1, np.nan)
@@ -43,6 +50,9 @@ def AOI_forcing_save_1d(input_path, file, AOI, AOI_points, var_name, period, tim
 
     # You can apply the same mask to this array
     masked_data = data[:, AOI_mask]
+    masked_latxy = latxy[AOI_mask]
+    masked_lonxy = lonxy[AOI_mask]
+
 
     # extract the data over land gridcells into a new data_arr for netcdf  
     data_arr = np.copy(masked_data)
@@ -58,23 +68,46 @@ def AOI_forcing_save_1d(input_path, file, AOI, AOI_points, var_name, period, tim
     dst.title = var_name + '('+ period + ') created from '+ input_path +' on ' +formatted_date
 
     # create the gridIDs, lon, and lat variable
-    x = dst.createDimension('gridcell', len(AOI_points))
+    x = dst.createDimension('ni', len(AOI_points))
+    x = dst.createDimension('nj', 1)
     x = dst.createDimension('time', time)
 
-    w_nc_var = dst.createVariable('gridID', np.int32, ('gridcell',))
+    w_nc_var = dst.createVariable('gridID', np.int32, ('nj','ni'))
     #  set variable attributes
     w_nc_var.long_name = "gridId in the "+AOI+ " domain" ;
     w_nc_var.decription = "Land gridcells within the "+ AOI +" domain" ;
-    dst.variables['gridID'][:] = AOI_points
+    dst.variables['gridID'][...] = AOI_points
 
     # Copy the variables from the source to the target
     for name, variable in src.variables.items():
         if (name == var_name):
             print(variable.datatype)
-            w_nc_var = dst.createVariable(var_name, np.float32, ('time', 'gridcell'))
+            w_nc_var = dst.createVariable(var_name, np.float32, ('time', 'nj', 'ni'))
             dst.variables[var_name][:] =data_arr
             for attr_name in variable.ncattrs():
                 dst[name].setncattr(attr_name, variable.getncattr(attr_name))
+        
+        if (name == 'time'):
+            dvname = 'time'
+            w_nc_var = dst.createVariable(dvname, np.float32, ('time'))
+            dst.variables[dvname][...] = data_time
+            for attr_name in variable.ncattrs():
+                dst[dvname].setncattr(attr_name, variable.getncattr(attr_name))
+
+        if (name == 'LATIXY'):
+            dvname = 'LATIXY'
+            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'))
+            dst.variables[dvname][...] = np.copy(masked_latxy)
+            for attr_name in variable.ncattrs():
+                dst[dvname].setncattr(attr_name, variable.getncattr(attr_name))
+
+        if (name == 'LONGXY'):
+            dvname = 'LONGXY'
+            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'))
+            dst.variables[dvname][...] = np.copy(masked_lonxy)
+            for attr_name in variable.ncattrs():
+                dst[dvname].setncattr(attr_name, variable.getncattr(attr_name))
+        
         
     src.close()  # close the source file 
     dst.close()  # close the new file        
