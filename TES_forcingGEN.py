@@ -35,7 +35,7 @@ def forcing_save_1dTES(input_path, file, var_name, period, time, output_path):
 
     lonxy, latxy = np.meshgrid(lon, lat)
 
-    print(lonxy.shape)
+    #print(lonxy.shape)
 
     # time in 'days since ' current yyyy-mm-01-01 00:00:00
     data_time = src['time'][0:time] # read (time, y, x) format
@@ -83,7 +83,7 @@ def forcing_save_1dTES(input_path, file, var_name, period, time, output_path):
             grid_ids = np.multiply(mask,grid_ids)
             grid_ids = grid_ids[~np.isnan(grid_ids)]
 
-            print(lonxy.shape, latxy.shape, mask.shape)
+            #print(lonxy.shape, latxy.shape, mask.shape)
             latxy = np.multiply(mask,latxy)
             latxy1 = latxy[~np.isnan(latxy)]
             lonxy = np.multiply(mask,lonxy)
