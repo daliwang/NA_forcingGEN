@@ -108,7 +108,7 @@ def forcing_save_1dTES(input_path, file, var_name, period, time, output_path):
     x = dst.createDimension('ni', grid_id_arr.size)
     x = dst.createDimension('nj', 1)
 
-    w_nc_var = dst.createVariable('gridID', np.int32, ('nj','ni'))
+    w_nc_var = dst.createVariable('gridID', np.int32, ('nj','ni'), zlib=True, complevel=5)
     #  set variable attributes
     w_nc_var.long_name = "gridId in the NA domain" ;
     w_nc_var.decription = "Covers all land and ocean gridcells, with #0 at the upper left corner of the domain" ;
@@ -143,7 +143,7 @@ def forcing_save_1dTES(input_path, file, var_name, period, time, output_path):
         
         if (name == 'time'):
             dvname = 'time'
-            w_nc_var = dst.createVariable(dvname, np.float32, ('time'))
+            w_nc_var = dst.createVariable(dvname, np.float32, ('time'), zlib=True, complevel=5)
             dst.variables[dvname][...] = data_time
             for attr_name in variable.ncattrs():
                 if 'units' in attr_name:
@@ -153,14 +153,14 @@ def forcing_save_1dTES(input_path, file, var_name, period, time, output_path):
 
         if (name == 'lat'):
             dvname = 'LATIXY'
-            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'))
+            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'), zlib=True, complevel=5)
             dst.variables[dvname][...] = latxy_arr
             for attr_name in variable.ncattrs():
                 dst[dvname].setncattr(attr_name, variable.getncattr(attr_name))
 
         if (name == 'lon'):
             dvname = 'LONGXY'
-            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'))
+            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'), zlib=True, complevel=5)
             dst.variables[dvname][...] = lonxy_arr
             for attr_name in variable.ncattrs():
                 dst[dvname].setncattr(attr_name, variable.getncattr(attr_name))
