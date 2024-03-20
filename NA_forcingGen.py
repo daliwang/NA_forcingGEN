@@ -108,14 +108,14 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     # Copy the variables from the source to the target
     for name, variable in src.variables.items():
         if (name == var_name):
-            w_nc_var = dst.createVariable(var_name, np.float32, ('time', 'nj', 'ni'))
+            w_nc_var = dst.createVariable(var_name, np.float32, ('time', 'nj', 'ni'), zlib=True, complevel=5)
             dst.variables[var_name][:] =data_arr.reshape(time,grid_id_arr.size)
             for attr_name in variable.ncattrs():
                 dst[name].setncattr(attr_name, variable.getncattr(attr_name))
         
         if (name == 'time'):
             dvname = 'time'
-            w_nc_var = dst.createVariable(dvname, np.float32, ('time'))
+            w_nc_var = dst.createVariable(dvname, np.float32, ('time'), zlib=True, complevel=5)
             dst.variables[dvname][...] = data_time
             for attr_name in variable.ncattrs():
                 if 'units' in attr_name:
@@ -125,7 +125,7 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
 
         if (name == 'lat'):
             dvname = 'LATIXY'
-            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'))
+            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'), zlib=True, complevel=5)
             dst.variables[dvname][...] = latxy_arr
             for attr_name in variable.ncattrs():
                 dst[dvname].setncattr(attr_name, variable.getncattr(attr_name))
@@ -135,7 +135,7 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
             w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'))
             dst.variables[dvname][...] = lonxy_arr
             for attr_name in variable.ncattrs():
-                dst[dvname].setncattr(attr_name, variable.getncattr(attr_name))
+                dst[dvname].setncattr(attr_name, variable.getncattr(attr_name), zlib=True, complevel=5)
 
     src.close()  # close the source file 
     dst.close()  # close the new file        
