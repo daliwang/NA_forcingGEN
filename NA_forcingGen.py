@@ -42,7 +42,7 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     iday = data_time - data_time0   # now in DOY of leapyear format, will be re-filled below
     imm = np.zeros_like(iday)
     mdoy = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365]
-    for m in range(1,12):
+    for m in range(1,13):
         tpts = np.where((iday>mdoy[m-1]) & (iday<=mdoy[m]))
         if (len(tpts[0])>0): 
             imm[tpts] = m             # in MM, may be 1 day off for leap-year
@@ -115,7 +115,7 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
         
         if (name == 'time'):
             dvname = 'time'
-            w_nc_var = dst.createVariable(dvname, np.float32, ('time'), zlib=True, complevel=5)
+            w_nc_var = dst.createVariable(dvname, np.float64, ('time'), zlib=True, complevel=5)
             dst.variables[dvname][...] = data_time
             for attr_name in variable.ncattrs():
                 if 'units' in attr_name:
@@ -135,7 +135,7 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
             w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'))
             dst.variables[dvname][...] = lonxy_arr
             for attr_name in variable.ncattrs():
-                dst[dvname].setncattr(attr_name, variable.getncattr(attr_name), zlib=True, complevel=5)
+                dst[dvname].setncattr(attr_name, variable.getncattr(attr_name))
 
     src.close()  # close the source file 
     dst.close()  # close the new file        
