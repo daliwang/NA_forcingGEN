@@ -28,8 +28,20 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
         time = total_time
 
     data = src[var_name][0:time, :, :]
-    latxy= src['lat'][:,:]
-    lonxy= src['lon'][:,:]
+    #latxy= src['lat'][:,:]   # lat/lon in original nc seems NOT matching with its projected y/x
+    #lonxy= src['lon'][:,:]   # So we do trust more in its y/x data
+    x_dim = src['x'][...]
+    y_dim = src['y'][...]
+    #Proj4: +proj=lcc +lon_0=-100 +lat_1=25 +lat_2=60 +k=1 +x_0=0 +y_0=0 +R=6378137 +f=298.257223563 +units=m  +no_defs
+    geoxy_proj_str = "+proj=lcc +lon_0=-100 +lat_0=42.5 +lat_1=25 +lat_2=60 +x_0=0 +y_0=0 +R=6378137 +f=298.257223563 +units=m +no_defs"
+    geoxyProj = CRS.from_proj4(geoxy_proj_str)
+    # EPSG: 4326
+    # Proj4: +proj=longlat +datum=WGS84 +no_defs
+    lonlatProj = CRS.from_epsg(4326) # in lon/lat coordinates
+    Txy2lonlat = Transformer.from_proj(geoxyProj, lonlatProj, always_xy=True)
+    grid_x, grid_y = np.meshgrid(x_dim,y_dim)
+    lonxy,latxy = Txy2lonlat.transform(grid_x,grid_y)
+
 
     # time in 'days since ' current yyyy-mm-01-01 00:00:00
     data_time = src['time'][0:time] # read (time, y, x) format
