@@ -7,6 +7,15 @@ import netCDF4 as nc
 import numpy as np
 from time import process_time
 from datetime import datetime
+from pyproj import Proj
+from pyproj import Transformer
+from pyproj import CRS
+
+try:
+    from mpi4py import MPI
+    HAS_MPI4PY=True
+except ImportError:
+    HAS_MPI4PY=False
 
 # Get current date
 current_date = datetime.now()
@@ -180,8 +189,9 @@ def main():
     time = int(args[2])
     
     files_nc = get_files(input_path)
-
-    for f in files_nc: 
+    
+    for i in range(len(files_nc)):
+        f = files_nc[i]
         if (not f.startswith('clmforc')): continue
         var_name = f[20:-11]
         period = f[-10:-3]
