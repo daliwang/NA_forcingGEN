@@ -157,8 +157,8 @@ def main():
 
     if len(sys.argv) != 4  or sys.argv[1] == '--help':  # sys.argv includes the script name as the first argument
         print("Example use: python NA_forcingGEN.py <input_path> <output_path> <time steps>")
-        print(" <input_path>: path to the 1D source data directory")
-        print(" <output_path>:  path for the 1D AOI forcing data directory")
+        print(" <input_path>: path to the 2D source data directory")
+        print(" <output_path>:  path for the 1D forcing data directory")
         print(" <time steps>: timesteps to be processed or -1 (all time series)")
         print(" The code converts 2D NA forcing inot  1D NA forcing")              
         exit(0)
