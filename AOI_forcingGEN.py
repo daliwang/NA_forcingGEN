@@ -128,7 +128,7 @@ def main():
     args = sys.argv[1:]
 
     if len(sys.argv) != 4  or sys.argv[1] == '--help':  # sys.argv includes the script name as the first argument
-        print("Example use: python AOI_forcingGEN.py <points_file_name> <AOI_domain_name>")
+        print("Example use: python AOI_forcingGEN.py <input_path> <output_path> <points_file_name>")
         print(" <input_path>: path to the 1D source data directory")
         print(" <output_path>:  path for the 1D AOI forcing data directory")
         print(" <points_file_name>:  <AOI>_gridID.csv")
@@ -137,7 +137,7 @@ def main():
     input_path = args[0]
     output_path = args[1]
     AOI_gridID_file = args[2]
-    AOI='AKSP'
+    #AOI='AKSP'
     time = 1
 
     files_nc = get_files(input_path)
