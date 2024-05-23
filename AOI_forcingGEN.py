@@ -82,28 +82,28 @@ def AOI_forcing_save_1d(input_path, file, AOI, AOI_points, var_name, period, tim
     for name, variable in src.variables.items():
         if (name == var_name):
             print(variable.datatype)
-            w_nc_var = dst.createVariable(var_name, np.float32, ('time', 'nj', 'ni'))
+            w_nc_var = dst.createVariable(var_name, np.float32, ('time', 'nj', 'ni'), zlib=True, complevel=5)
             dst.variables[var_name][:] =data_arr
             for attr_name in variable.ncattrs():
                 dst[name].setncattr(attr_name, variable.getncattr(attr_name))
         
         if (name == 'time'):
             dvname = 'time'
-            w_nc_var = dst.createVariable(dvname, np.float32, ('time'))
+            w_nc_var = dst.createVariable(dvname, np.float32, ('time'), zlib=True, complevel=5)
             dst.variables[dvname][...] = data_time
             for attr_name in variable.ncattrs():
                 dst[dvname].setncattr(attr_name, variable.getncattr(attr_name))
 
         if (name == 'LATIXY'):
             dvname = 'LATIXY'
-            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'))
+            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'), zlib=True, complevel=5)
             dst.variables[dvname][...] = np.copy(masked_latxy)
             for attr_name in variable.ncattrs():
                 dst[dvname].setncattr(attr_name, variable.getncattr(attr_name))
 
         if (name == 'LONGXY'):
             dvname = 'LONGXY'
-            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'))
+            w_nc_var = dst.createVariable(dvname, np.float64, ('nj','ni'), zlib=True, complevel=5)
             dst.variables[dvname][...] = np.copy(masked_lonxy)
             for attr_name in variable.ncattrs():
                 dst[dvname].setncattr(attr_name, variable.getncattr(attr_name))
