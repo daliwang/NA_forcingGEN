@@ -4,15 +4,15 @@ import math
 import netCDF4 as nc
 import numpy as np
 from time import process_time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def is_leap_year(year):
     """ Check if a given year is a leap year. """
     return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
 
-version_data = "03312025"
+version_date = "03312025"
 
-def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
+def forcing_1dNA(input_path, file, var_name, period, time, output_path):
     # Open a new NetCDF file to write the data to. For format, you can choose from
     # 'NETCDF3_CLASSIC', 'NETCDF3_64BIT', 'NETCDF4_CLASSIC', and 'NETCDF4'
     source_file = input_path + '/'+ file
@@ -36,9 +36,11 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     if time == -1:
         time = total_time
 
-    data = src[var_name][0:time, :, :]
+#    data = src[var_name][0:time, :, :]
     x_dim = src['x'][...]
     y_dim = src['y'][...]
+    latxy = src['lat'][:]
+    lonxy = src['lon'][:]
 
     # Sample code for time variable transformation:
     time_variable = src['time'][:]  # Read full time variable
@@ -59,12 +61,6 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     for i, days_since in enumerate(time_variable):
         # Calculate the full year based on total days since t0
         current_date = t0 + timedelta(days=float(days_since))  # Current date from base date
-        '''
-        year = t0.year + int(days_since // 365.25)  # Using 365.25 for average leap year calculation
-        # Handle the end of year transition
-        if (current_date.year > year):
-            year += 1
-        '''
 
         # Get the year, month, and the day of the month
         year = current_date.year
@@ -83,8 +79,10 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     # Example for how to update the data_time output
     data_time = days_in_month  # This now holds the day of the current month
 
+    # Get mask and create gridID, latxy, lonxy first
+
     #create land mask
-    mask = data[0]    # data is in (time, Y, X) format
+    mask = src[var_name][0:1, :, :]   # data is in (time, Y, X) format
     mask = np.where(~np.isnan(mask), 1, np.nan)
 
     #create gridIDs
@@ -96,12 +94,6 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     grid_ids = np.multiply(mask,grid_ids)
     grid_ids = grid_ids[~np.isnan(grid_ids)]
 
-    # extract the data over land gridcells
-    landcells = len(grid_ids)    
-    data = np.multiply(mask, data)
-    data = data[~np.isnan(data)]
-    data = np.reshape(data,(time,landcells))
-
     latxy = np.multiply(mask,latxy)
     latxy = latxy[~np.isnan(latxy)]
     lonxy = np.multiply(mask,lonxy)
@@ -111,21 +103,23 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     grid_id_arr = np.array(grid_ids)
 
     #data_arr = np.array(FSDS_list[i])
-    data_arr = np.array(data)
+    #data_arr = np.array(data)
     lonxy_arr= np.array(lonxy)
     latxy_arr= np.array(latxy)
-    
+
     dst_name = output_path + '/clmforc.Daymet4.1km.1d.' + var_name + '.' + period +'.nc'
 
     # Open a new NetCDF file to write the data to. For format, you can choose from
     # 'NETCDF3_CLASSIC', 'NETCDF3_64BIT', 'NETCDF4_CLASSIC', and 'NETCDF4'
     dst = nc.Dataset(dst_name, 'w', format='NETCDF3_64BIT_DATA')
-    dst.title = var_name + '('+period+') creted from '+ input_path +' on ' +versioin_date
+    dst.title = var_name + '('+period+') creted from '+ input_path +' on ' +version_date
 
     # create the gridIDs, lon, and lat variable
     x = dst.createDimension('time', time)
     x = dst.createDimension('ni', grid_id_arr.size)
     x = dst.createDimension('nj', 1)
+    x = dst.createDimension('x_dim', len(x_dim))
+    x = dst.createDimension('y_dim', len(y_dim))
 
     w_nc_var = dst.createVariable('gridID', np.int32, ('nj','ni'))
 
@@ -133,6 +127,20 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     w_nc_var.long_name = "gridId in the NA domain" ;
     w_nc_var.decription = "Covers all land and ocean gridcells, with #0 at the upper left corner of the domain" ;
     dst.variables['gridID'][...] = grid_id_arr.reshape(grid_id_arr.size,1)
+
+    # Create variables for x_dim and y_dim in the output NetCDF file
+    x_dim_var = dst.createVariable('x_dim', np.float32, ('x_dim',), zlib=True, complevel=5)
+    y_dim_var = dst.createVariable('y_dim', np.float32, ('y_dim',), zlib=True, complevel=5)
+
+    # Assign values to the x and y variables
+    dst.variables['x_dim'][...] = x_dim
+    dst.variables['y_dim'][...] = y_dim
+
+    # Set attributes for x and y variables (optional)
+    x_dim_var.long_name = "x coordinate"
+    x_dim_var.units = "m: east to west"  # Adjust units if necessary
+    y_dim_var.long_name = "y coordinate"
+    y_dim_var.units = "m: north to south"  # Adjust units if necessary
 
     # Copy the variables from the source to the target
     for name, variable in src.variables.items():
@@ -145,30 +153,41 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
         if variable.datatype == np.float32:
             fill_value = np.float32(-9999)  # or any other value that you want to use to represent missing data
 
-        # Check if the last two dimensions are lat and lon and save the data 
+        # Check if the last two dimensions are y and x and save the data 
  
-        if (variable.dimensions[-2:] == ('y', 'x') ) :
-            
-            data = src[name][0:time, :, :]
-            
-            # extract the data over land gridcells
-            landcells = len(grid_ids)    
-            data = np.multiply(mask, data)
-            data = data[~np.isnan(data)]
-            data = np.reshape(data,(time,landcells))
+        if len(variable.dimensions) == 3 and variable.dimensions[-2:] == ('y', 'x'):
+            chunk_size = 40  # Number of time steps to process at a time
+            landcells = len(grid_ids)
 
-            data_arr = np.array(data)
-            
+            # Create the variable in the output NetCDF file
             w_nc_var = dst.createVariable(name, np.float32, ('time', 'nj', 'ni'), zlib=True, complevel=5)
-            dst.variables[name][:] =data_arr.reshape(time,grid_id_arr.size)
+
+            for start in range(0, time, chunk_size):
+                end = min(start + chunk_size, time)  # Ensure we don't exceed the total time steps
+                print(f"Processing time steps {start} to {end}")
+
+                # Read a chunk of data from the source file
+                data_chunk = src[name][start:end, :, :]
+
+                # Extract the data over land grid cells
+                data_chunk = np.multiply(mask, data_chunk)
+                data_chunk = data_chunk[~np.isnan(data_chunk)]
+                data_chunk = np.reshape(data_chunk, (end - start, landcells))
+
+                # Write the chunk to the output file
+                dst.variables[name][start:end, 0, :] = data_chunk
+
+            # Copy attributes for the variable
             for attr_name in variable.ncattrs():
                 if attr_name != '_FillValue':  # Skip the _FillValue attribute
                     dst[name].setncattr(attr_name, variable.getncattr(attr_name))
  
-
         if (name == 'time'):
             dvname = 'time'
             w_nc_var = dst.createVariable(dvname, np.float32, ('time'), fill_value=fill_value, zlib=True, complevel=5)
+            # Ensure data_time matches the 'time' dimension
+            data_time = data_time[:time]  # Slice data_time to match the 'time' dimension
+
             dst.variables[dvname][...] = data_time
             for attr_name in variable.ncattrs():
                 if 'units' in attr_name:
@@ -227,7 +246,7 @@ def main():
                 start = process_time()
                 # Copy the file to the new location
                 print(root, new_dir)
-                forcing_save_1dTES(root, file, var_name, period, time, new_dir)
+                forcing_1dNA(root, file, var_name, period, time, new_dir)
                 end = process_time()
                 print("Generating 1D forcing data takes {}".format(end-start))
 
