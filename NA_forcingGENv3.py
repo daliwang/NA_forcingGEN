@@ -156,7 +156,7 @@ def forcing_1dNA(input_path, file, var_name, period, time, output_path):
         # Check if the last two dimensions are y and x and save the data 
  
         if len(variable.dimensions) == 3 and variable.dimensions[-2:] == ('y', 'x'):
-            chunk_size = 40  # Number of time steps to process at a time
+            chunk_size = 30  # Number of time steps to process at a time
             landcells = len(grid_ids)
 
             # Create the variable in the output NetCDF file
