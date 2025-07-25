@@ -39,6 +39,8 @@ def forcing_save_1dNA(input_path, file, var_name, period, time, output_path):
     data = src[var_name][0:time, :, :]
     x_dim = src['x'][...]
     y_dim = src['y'][...]
+    latxy = src['lat'][:]
+    lonxy = src['lon'][:]
 
     # Sample code for time variable transformation:
     time_variable = src['time'][:]  # Read full time variable
