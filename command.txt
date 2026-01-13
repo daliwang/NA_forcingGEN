@@ -7,10 +7,11 @@
 #single year single variable
 sbatch --export=ALL,YEAR=2020,VARS_STR="TBOT" NA_ERAforcingGEN_sinlgevariable_local_nnode.py
 
+sbatch --export=ALL,YEAR=2020,VARS_STR="TBOT FLDS FSDS QBOT PRCTmms WIND PSRF" NA_ERAforcingGEN_sinlgevariable_local_nnode.py
 sbatch --export=ALL,YEAR=2024,VARS_STR="TBOT FLDS FSDS QBOT PRECTmms WIND PSRF",PROCS=4,INTRA_WORKERS=2 NA_ERAforcingGEN_sinlgeyear_multivariables_local_nnode.sub
 
 
 sbatch --export=ALL,YEAR=2024,VARS_STR="TBOT FLDS FSDS",TIME_LIMIT=-1,PROCS=4,INTRA_WORKERS=2 NA_ERAforcingGEN_sinlgeyear_multivariables_local_nnode.sub
 
+sbatch --export=ALL,YEAR=2024,VARS_STR="QBOT PRCTmms WIND PSRF",TIME_LIMIT=-1,PROCS=4,INTRA_WORKERS=2 NA_ERAforcingGEN_sinlgeyear_multivariables_local_nnode.sub
 
-sbatch --export=ALL,YEAR=2020,VARS_STR="TBOT FLDS FSDS QBOT PRCTmms WIND PSRF" NA_ERAforcingGEN_sinlgevariable_local_nnode.py

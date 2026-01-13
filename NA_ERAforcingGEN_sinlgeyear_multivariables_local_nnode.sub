@@ -115,7 +115,29 @@ for idx in "${!VARIABLES[@]}"; do
   echo "Launching ${VAR_NAME} on node ${node} with 4 tasks x ${INTRA_WORKERS} CPUs"
   # Run work on the assigned node; when all 4 tasks finish, copy results from that node's scratch to GPFS
   (
-    set -euo pipefail
+    # Start per-node month-level copy/prune on the producing node
+    srun --exclusive -N1 -w "${node}" -n1 bash -lc '
+      set -e
+      src="'"${LOCAL_OUT}"'/'"${VAR_NAME}"'/'"${YEAR}"'"
+      dest="'"${FINAL_OUT}"'/'"${VAR_NAME}"'/'"${YEAR}"'"
+      mkdir -p "$dest"
+      while :; do
+        find "$src" -maxdepth 1 -type f -name "*.nc.done" -print0 2>/dev/null | while IFS= read -r -d "" f; do
+          ncf="${f%.done}"
+          if [ -f "$ncf" ]; then
+            rsync -a "$ncf" "$dest/"
+            rm -f "$f" "$ncf"
+          else
+            rm -f "$f"
+          fi
+        done
+        sleep 10
+      done
+    ' &
+    _WATCH_PID=$!
+
+    # Run 4 tasks; do not abort subshell on a single task failure
+    set +e
     srun --exclusive -N1 -w "${node}" -n 4 --ntasks-per-node=4 --cpus-per-task=${INTRA_WORKERS} \
          --cpu-bind=cores --hint=nomultithread \
          -o "${vprefix}_p%t.log.${date_string}" \
@@ -129,16 +151,22 @@ for idx in "${!VARIABLES[@]}"; do
            /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python -u \
              NA_ERAforcingGEN.py "'"${IN_PATH}"'" "'"${LOCAL_OUT}"'" "'"${TIME_LIMIT}"'" "'"${MAX_DAYS}"'" "'"${VAR_NAME}"'" "${MSET}" "'"${INTRA_WORKERS}"'"
          '
-    # Copy back on the producing node to access its local scratch
+    _rc=$?
+    set -e
+
+    # Stop watcher and do a final sweep/copy from this node's local scratch
+    kill "${_WATCH_PID}" 2>/dev/null || true
     srun --exclusive -N1 -w "${node}" -n1 bash -lc '
       src="'"${LOCAL_OUT}"'/'"${VAR_NAME}"'/'"${YEAR}"'"
       dest="'"${FINAL_OUT}"'/'"${VAR_NAME}"'/'"${YEAR}"'"
-      if [ -d "${src}" ]; then
-        mkdir -p "${dest}"
-        rsync -a --info=stats2,progress2 "${src}/" "${dest}/"
-        rm -rf "${src}"
+      if [ -d "$src" ]; then
+        mkdir -p "$dest"
+        # Copy any remaining .nc files
+        find "$src" -maxdepth 1 -type f -name "*.nc" -print0 | xargs -0 -I{} rsync -a "{}" "$dest/" || true
+        rm -rf "$src"
       fi
     '
+    exit "${_rc}"
   ) &
   SRUN_PIDS+=("$!")
 done
