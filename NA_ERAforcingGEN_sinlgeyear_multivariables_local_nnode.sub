@@ -1,0 +1,159 @@
+#!/bin/bash
+#SBATCH -A CLI185
+#SBATCH -J NA_ERA_multivar_singleyear
+#SBATCH -p batch_ccsi
+#SBATCH -N 3
+#SBATCH -t 12:00:00
+#SBATCH --mem=500GB
+
+set -euo pipefail
+
+# Conda env
+module load miniforge3
+source activate /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv
+
+cd /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_forcingGEN
+export HDF5_USE_FILE_LOCKING=FALSE
+date_string=$(date +'%y%m%d-%H%M')
+
+# Single year label (for EXPID and input path)
+YEAR="${YEAR:-2024}"
+EXPID="NADaymet_ERA5_TEST_${YEAR}"
+
+# Input on GPFS for a single year
+IN_PATH="/gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_forcingGEN/Daymet_ERA5/netcdf_NA/${YEAR}"
+
+# Final output on GPFS
+FINAL_OUT="/gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_cases_data/${EXPID}/forcing"
+mkdir -p "${FINAL_OUT}"
+
+# Performance tuning knobs (override at submit time if desired)
+export WRITE_BATCH_DAYS="${WRITE_BATCH_DAYS:-8}"
+export APPEND_MODE="${APPEND_MODE:-0}"
+export SYNC_INTERVAL_STEPS="${SYNC_INTERVAL_STEPS:-0}"
+export APPEND_SYNC="${APPEND_SYNC:-0}"
+
+# Parallel layout (outer procs; inner readers per proc)
+PROCS="${PROCS:-4}"          # 4 or 6
+INTRA_WORKERS="${INTRA_WORKERS:-2}"
+TIME_LIMIT="${TIME_LIMIT:--1}"
+MAX_DAYS="${MAX_DAYS:--1}"
+
+# Variables to process (override with: VARS_STR="TBOT FLDS ...")
+VARS_STR="${VARS_STR:-TBOT FLDS FSDS QBOT PRECTmms WIND PSRF}"
+read -r -a VARIABLES <<< "${VARS_STR}"
+
+# Node-local scratch (prefer SLURM_TMPDIR, else TMPDIR, else /tmp)
+SCRATCH_ROOT="${SLURM_TMPDIR:-${TMPDIR:-/tmp}}"
+JOB_SCRATCH="${SCRATCH_ROOT}/${USER}/${SLURM_JOB_ID}"
+LOCAL_OUT="${JOB_SCRATCH}/forcing"
+mkdir -p "${LOCAL_OUT}"
+
+start_ts=$(date +%s)
+echo "START: $(date -Iseconds)  EXPID=${EXPID}"
+echo "Writing to node-local scratch: ${LOCAL_OUT}"
+
+log_prefix="./${EXPID}_monthly"
+
+# Finalization routine to ensure cleanup and final rsync even on cancel/error
+FINALIZED=0
+finalize() {
+  if [ "${FINALIZED}" -eq 1 ]; then
+    return
+  fi
+  FINALIZED=1
+  reason="${1:-normal}"
+  echo "Final sync and cleanup (reason: ${reason})..."
+  # Final sweep for any remaining completion markers
+  while IFS= read -r -d '' donef; do
+    ncfile="${donef%.done}"
+    relpath="${ncfile#${LOCAL_OUT}/}"
+    dest="${FINAL_OUT}/${relpath}"
+    mkdir -p "$(dirname "${dest}")"
+    rsync -a --info=stats2,progress2 "${ncfile}" "${dest}" && rm -f "${ncfile}" "${donef}"
+  done < <(find "${LOCAL_OUT}" -type f -name '*.nc.done' -print0 2>/dev/null || true)
+  # Safety net: copy any remaining files then remove local scratch to free space
+  rsync -a --info=stats2,progress2 "${LOCAL_OUT}/" "${FINAL_OUT}/" || true
+  # Stop watcher if running
+  if [ -n "${WATCHER_PID-}" ]; then
+    kill "${WATCHER_PID}" 2>/dev/null || true
+  fi
+  rm -rf "${JOB_SCRATCH}" || true
+  echo "Copy complete to GPFS: ${FINAL_OUT} (local scratch cleaned)"
+}
+trap 'finalize "signal"' TERM INT
+trap 'finalize "exit"' EXIT
+
+# No global watcher across nodes; per-variable post-copy runs on the producing node after srun finishes
+WATCHER_PID=""
+
+# Map allocated nodes to variables: one node per variable
+mapfile -t NODELIST < <(scontrol show hostnames "${SLURM_JOB_NODELIST}")
+num_vars=${#VARIABLES[@]}
+num_nodes=${#NODELIST[@]}
+if [ "${num_nodes}" -lt "${num_vars}" ]; then
+  echo "Warning: only ${num_nodes} nodes for ${num_vars} variables; some nodes will run multiple variables."
+fi
+
+# Helper to count running SRUNs (exclude watcher)
+running_srun_count() {
+  jobs -rp | grep -v -E "^${WATCHER_PID}\$" | wc -l | tr -d ' '
+}
+
+# Track only SRUN PIDs so final wait does not block on watcher
+SRUN_PIDS=()
+
+# Concurrency: at most one variable per node at a time
+for idx in "${!VARIABLES[@]}"; do
+  # throttle to number of nodes
+  while [ "$(running_srun_count)" -ge "${num_nodes}" ]; do
+    sleep 1
+  done
+  VAR_NAME="${VARIABLES[$idx]}"
+  node="${NODELIST[$(( idx % num_nodes ))]}"
+  vprefix="${log_prefix}_${VAR_NAME}_${YEAR}"
+  echo "Launching ${VAR_NAME} on node ${node} with 4 tasks x ${INTRA_WORKERS} CPUs"
+  # Run work on the assigned node; when all 4 tasks finish, copy results from that node's scratch to GPFS
+  (
+    set -euo pipefail
+    srun --exclusive -N1 -w "${node}" -n 4 --ntasks-per-node=4 --cpus-per-task=${INTRA_WORKERS} \
+         --cpu-bind=cores --hint=nomultithread \
+         -o "${vprefix}_p%t.log.${date_string}" \
+         bash -lc '
+           case "${SLURM_PROCID}" in
+             0) MSET="01,05,09";;
+             1) MSET="02,06,10";;
+             2) MSET="03,07,11";;
+             3) MSET="04,08,12";;
+           esac
+           /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python -u \
+             NA_ERAforcingGEN.py "'"${IN_PATH}"'" "'"${LOCAL_OUT}"'" "'"${TIME_LIMIT}"'" "'"${MAX_DAYS}"'" "'"${VAR_NAME}"'" "${MSET}" "'"${INTRA_WORKERS}"'"
+         '
+    # Copy back on the producing node to access its local scratch
+    srun --exclusive -N1 -w "${node}" -n1 bash -lc '
+      src="'"${LOCAL_OUT}"'/'"${VAR_NAME}"'/'"${YEAR}"'"
+      dest="'"${FINAL_OUT}"'/'"${VAR_NAME}"'/'"${YEAR}"'"
+      if [ -d "${src}" ]; then
+        mkdir -p "${dest}"
+        rsync -a --info=stats2,progress2 "${src}/" "${dest}/"
+        rm -rf "${src}"
+      fi
+    '
+  ) &
+  SRUN_PIDS+=("$!")
+done
+
+set +e
+if [ "${#SRUN_PIDS[@]}" -gt 0 ]; then
+  wait "${SRUN_PIDS[@]}"
+fi
+rc=$?
+set -e
+echo "All workers finished (wait rc=${rc}); performing final sync and cleanup..."
+finalize "workers-finished"
+
+end_ts=$(date +%s)
+elapsed=$((end_ts-start_ts))
+echo "END: $(date -Iseconds)"
+echo "ELAPSED_SECONDS: $elapsed"
+

@@ -1,0 +1,39 @@
+#!/bin/bash
+#SBATCH -A CLI185
+#SBATCH -J NA_ERA_bench_serial_TBOT_2014_07
+#SBATCH -p batch_ccsi
+#SBATCH -N 1
+#SBATCH -t 04:00:00
+#SBATCH --mem=500GB
+
+set -euo pipefail
+
+module load miniforge3
+source activate /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv
+
+cd /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_forcingGEN
+export HDF5_USE_FILE_LOCKING=FALSE
+date_string=$(date +'%y%m%d-%H%M')
+
+EXPID="NADaymet_ERA5_TEST_2014"
+
+log_file="${EXPID}_forcinggen.log.${date_string}"
+
+YEAR=2014
+VAR_NAME=TBOT
+MONTHS=07
+TIME_LIMIT=-1
+MAX_DAYS=-1
+INTRA_WORKERS=2
+IN_PATH="/gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_forcingGEN/Daymet_ERA5/netcdf_NA/${YEAR}"
+OUT_PATH="/gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_cases_data/NADaymet_ERA5_TEST_${YEAR}/forcing"
+
+start_ts=$(date +%s)
+echo "START: $(date -Iseconds)"
+cmd=(/gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python -u NA_ERAforcingGEN.py "$IN_PATH" "$OUT_PATH" "$TIME_LIMIT" "$MAX_DAYS" "$VAR_NAME" "$MONTHS" "$INTRA_WORKERS")
+echo "srun --kill-on-bad-exit=1 -n 1 --cpus-per-task=${INTRA_WORKERS} ${cmd[*]}"
+srun --kill-on-bad-exit=1 -n 1 --cpus-per-task="${INTRA_WORKERS}" "${cmd[@]}" > "${log_file}" 2>&1
+end_ts=$(date +%s)
+elapsed=$((end_ts-start_ts))
+echo "END: $(date -Iseconds)"
+echo "ELAPSED_SECONDS: $elapsed"

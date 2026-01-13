@@ -218,20 +218,29 @@ def forcing_1dNA(input_path, file, var_name, period, time, output_path):
 def main():
     args = sys.argv[1:]
 
-    if len(sys.argv) != 4  or sys.argv[1] == '--help':  # sys.argv includes the script name as the first argument
-        print("Example use: python NA_forcingGEN.py <input_path> <output_path> <time steps>")
+    if (len(sys.argv) < 4) or sys.argv[1] == '--help':  # sys.argv includes the script name as the first argument
+        print("Example use: python NA_forcingGEN.py <input_path> <output_path> <time steps> [max_files_per_dir]")
         print(" <input_path>: path to the 1D source data directory")
         print(" <output_path>:  path for the 1D AOI forcing data directory")
         print(" <time steps>: timesteps to be processed or -1 (all time series)")
+        print(" [max_files_per_dir]: optional integer to limit number of files processed per directory (default: all)")
         print(" The code converts 2D NA forcing inot  1D NA forcing")              
         exit(0)
 
     input_path = args[0]
     output_path = args[1]
     time = int(args[2])
+    max_files_per_dir = None
+    if len(args) >= 4:
+        try:
+            max_files_per_dir = int(args[3])
+        except ValueError:
+            # Ignore non-integer optional arg silently to keep backward compatibility
+            max_files_per_dir = None
 
     # Iterate over all subdirectories in the input directory
     for root, dirs, files in os.walk(input_path):
+        processed_in_dir = 0
         for file in files:
             # Check if the file ends with '.nc'
             if file.endswith('.nc'):
@@ -249,6 +258,9 @@ def main():
                 forcing_1dNA(root, file, var_name, period, time, new_dir)
                 end = process_time()
                 print("Generating 1D forcing data takes {}".format(end-start))
+                processed_in_dir += 1
+                if max_files_per_dir is not None and processed_in_dir >= max_files_per_dir:
+                    break
 
 
 if __name__ == '__main__':

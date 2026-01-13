@@ -1,0 +1,69 @@
+#!/bin/bash
+#SBATCH -A CLI185
+#SBATCH -J NA_ERA_forcingGEN
+#SBATCH -p batch_ccsi
+#SBATCH -N 1
+#SBATCH -t 04:00:00
+#SBATCH --mem=500GB
+
+time_steps="-1"
+
+module load miniforge3
+source activate /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv
+
+NA_forcingGEN_path="/gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_forcingGEN/"
+cd ${NA_forcingGEN_path}
+date_string=$(date +'%y%m%d-%H%M')
+
+YEAR="2024"
+EXPID="NADaymet_ERA5_TEST_${YEAR}"
+NA_forcing_path="/gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_forcingGEN/Daymet_ERA5/netcdf_NA/${YEAR}"
+
+forcing_output_path=/gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_cases_data/$EXPID/forcing/
+mkdir -p ${forcing_output_path}
+
+echo ${NA_forcing_path} ${forcing_output_path} ${time_steps}
+
+# Parallel monthly generation using 4 or 6 concurrent processes (disjoint months)
+# Configure degree of outer parallelism (4 or 6) and inner readers (8-10)
+PROCS=4            # set to 4 or 6
+INTRA_WORKERS=8    # 8-10 cores for daily reads per process
+VAR_NAME="TBOT"    # set single variable or leave empty to process all
+TIME_LIMIT="-1"    # -1 full hourly series
+MAX_DAYS="-1"      # -1 all non-leap days
+
+log_prefix="./${EXPID}_monthly"
+
+if [ "${PROCS}" -eq 4 ]; then
+  MSET1="01,05,09"
+  MSET2="02,06,10"
+  MSET3="03,07,11"
+  MSET4="04,08,12"
+
+  srun --exclusive -N1 -n1 --cpus-per-task=${INTRA_WORKERS} /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python NA_ERAforcingGEN.py ${NA_forcing_path} ${forcing_output_path} ${TIME_LIMIT} ${MAX_DAYS} ${VAR_NAME} ${MSET1} ${INTRA_WORKERS} >& ${log_prefix}_p1.log.${date_string} &
+  srun --exclusive -N1 -n1 --cpus-per-task=${INTRA_WORKERS} /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python NA_ERAforcingGEN.py ${NA_forcing_path} ${forcing_output_path} ${TIME_LIMIT} ${MAX_DAYS} ${VAR_NAME} ${MSET2} ${INTRA_WORKERS} >& ${log_prefix}_p2.log.${date_string} &
+  srun --exclusive -N1 -n1 --cpus-per-task=${INTRA_WORKERS} /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python NA_ERAforcingGEN.py ${NA_forcing_path} ${forcing_output_path} ${TIME_LIMIT} ${MAX_DAYS} ${VAR_NAME} ${MSET3} ${INTRA_WORKERS} >& ${log_prefix}_p3.log.${date_string} &
+  srun --exclusive -N1 -n1 --cpus-per-task=${INTRA_WORKERS} /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python NA_ERAforcingGEN.py ${NA_forcing_path} ${forcing_output_path} ${TIME_LIMIT} ${MAX_DAYS} ${VAR_NAME} ${MSET4} ${INTRA_WORKERS} >& ${log_prefix}_p4.log.${date_string} &
+elif [ "${PROCS}" -eq 6 ]; then
+  # One or two months per process
+  MSET1="01,07"
+  MSET2="02,08"
+  MSET3="03,09"
+  MSET4="04,10"
+  MSET5="05,11"
+  MSET6="06,12"
+
+  srun --exclusive -N1 -n1 --cpus-per-task=${INTRA_WORKERS} /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python NA_ERAforcingGEN.py ${NA_forcing_path} ${forcing_output_path} ${TIME_LIMIT} ${MAX_DAYS} ${VAR_NAME} ${MSET1} ${INTRA_WORKERS} >& ${log_prefix}_p1.log.${date_string} &
+  srun --exclusive -N1 -n1 --cpus-per-task=${INTRA_WORKERS} /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python NA_ERAforcingGEN.py ${NA_forcing_path} ${forcing_output_path} ${TIME_LIMIT} ${MAX_DAYS} ${VAR_NAME} ${MSET2} ${INTRA_WORKERS} >& ${log_prefix}_p2.log.${date_string} &
+  srun --exclusive -N1 -n1 --cpus-per-task=${INTRA_WORKERS} /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python NA_ERAforcingGEN.py ${NA_forcing_path} ${forcing_output_path} ${TIME_LIMIT} ${MAX_DAYS} ${VAR_NAME} ${MSET3} ${INTRA_WORKERS} >& ${log_prefix}_p3.log.${date_string} &
+  srun --exclusive -N1 -n1 --cpus-per-task=${INTRA_WORKERS} /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python NA_ERAforcingGEN.py ${NA_forcing_path} ${forcing_output_path} ${TIME_LIMIT} ${MAX_DAYS} ${VAR_NAME} ${MSET4} ${INTRA_WORKERS} >& ${log_prefix}_p4.log.${date_string} &
+  srun --exclusive -N1 -n1 --cpus-per-task=${INTRA_WORKERS} /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python NA_ERAforcingGEN.py ${NA_forcing_path} ${forcing_output_path} ${TIME_LIMIT} ${MAX_DAYS} ${VAR_NAME} ${MSET5} ${INTRA_WORKERS} >& ${log_prefix}_p5.log.${date_string} &
+  srun --exclusive -N1 -n1 --cpus-per-task=${INTRA_WORKERS} /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python NA_ERAforcingGEN.py ${NA_forcing_path} ${forcing_output_path} ${TIME_LIMIT} ${MAX_DAYS} ${VAR_NAME} ${MSET6} ${INTRA_WORKERS} >& ${log_prefix}_p6.log.${date_string} &
+else
+  echo "Unsupported PROCS=${PROCS}. Use 4 or 6."
+  exit 1
+fi
+
+wait
+
+

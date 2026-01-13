@@ -1,0 +1,32 @@
+#!/bin/bash
+#SBATCH -A CLI185
+#SBATCH -J NA_ERA_bench_TBOT_2014_06
+#SBATCH -p batch
+#SBATCH -N 1
+#SBATCH -t 01:00:00
+#SBATCH --mem=250GB
+
+module load miniforge3
+source activate /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv
+
+cd /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_forcingGEN
+export HDF5_USE_FILE_LOCKING=FALSE
+
+YEAR=2014
+VAR_NAME=TBOT
+MONTHS=06
+TIME_LIMIT=-1
+MAX_DAYS=-1
+INTRA_WORKERS=8
+IN_PATH="/gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_forcingGEN/Daymet_ERA5/netcdf_NA/${YEAR}"
+OUT_PATH="/gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/NA_cases_data/NADaymet_ERA5_TEST_${YEAR}/forcing"
+
+start_ts=$(date +%s)
+echo "START: $(date -Iseconds)"
+srun --export=ALL,HDF5_USE_FILE_LOCKING=FALSE -N1 -n1 --cpus-per-task=${INTRA_WORKERS} \
+  /gpfs/wolf2/cades/cli185/proj-shared/wangd/kiloCraft/python_test_env/conda_envs/testvenv/bin/python -u \
+  NA_ERAforcingGEN.py "$IN_PATH" "$OUT_PATH" "$TIME_LIMIT" "$MAX_DAYS" "$VAR_NAME" "$MONTHS" "$INTRA_WORKERS"
+end_ts=$(date +%s)
+elapsed=$((end_ts-start_ts))
+echo "END: $(date -Iseconds)"
+echo "ELAPSED_SECONDS: $elapsed"
