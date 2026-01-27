@@ -12,6 +12,6 @@ sbatch --export=ALL,YEAR=2024,VARS_STR="TBOT FLDS FSDS QBOT PRECTmms WIND PSRF",
 
 
 sbatch --export=ALL,YEAR=2024,VARS_STR="TBOT FLDS FSDS",TIME_LIMIT=-1,PROCS=4,INTRA_WORKERS=2 NA_ERAforcingGEN_sinlgeyear_multivariables_local_nnode.sub
-
 sbatch --export=ALL,YEAR=2024,VARS_STR="QBOT PRCTmms WIND PSRF",TIME_LIMIT=-1,PROCS=4,INTRA_WORKERS=2 NA_ERAforcingGEN_sinlgeyear_multivariables_local_nnode.sub
 
+sbatch -N 3 -t 04:00:00 --export=ALL,YEAR=2023,TIME_LIMIT=-1,VARS_STR="TBOT FLDS FSDS QBOT PRECTmms WIND PSRF",,PROCS=4,INTRA_WORKERS=2 NA_ERAforcingGEN_sinlgeyear_multivariables_local_nnode.sub
